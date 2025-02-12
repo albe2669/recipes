@@ -14,4 +14,3 @@ if appropriate. All modules should have a short description.
 """
 
 from .main import Recipes as Recipes
-from chef import Chef as Chef
