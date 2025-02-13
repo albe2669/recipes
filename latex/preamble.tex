@@ -34,80 +34,79 @@
 \renewcommand{\chaptermark}[1]{\markboth{Chapter \thechapter: #1}{}}
 
 \newenvironment{recipe}{
-    \columnratio{0.32, 0.68}
-    \begin{paracol}{2}
-}{
-    \end{paracol}
+	\columnratio{0.32, 0.68}
+	\begin{paracol}{2}
+		}{
+	\end{paracol}
 }
 
 % Custom command for recipe header
 \newcommand{\recipeheader}[1]{
-    \addcontentsline{toc}{section}{#1}
-    \begin{center}
-        {\fontsize{24}{28}\selectfont\textbf{#1}}
-        \vspace{1em}
-    \end{center}
+	\addcontentsline{toc}{section}{#1}
+	\begin{center}
+		{\fontsize{24}{28}\selectfont\textbf{#1}}
+		\vspace{1em}
+	\end{center}
 }
 
 % Custom command for recipe description
 \newcommand{\recipedesc}[1]{
-    \begin{center}
-        \textit{#1}
-    \end{center}
+	\begin{center}
+		\textit{#1}
+	\end{center}
 }
 
 % Custom command for recipe metadata
 \newcommand{\recipemeta}[4]{
-    \seprule
+	\seprule
 
-    \vspace*{0.0055\textheight}
-    
-    {
-        \centering
-        \textbf{SERVES}\hspace{0.5em}#1\hspace{2em}
-        \textbf{PREP}\hspace{0.5em}#2\hspace{2em}
-        \textbf{COOKING}\hspace{0.5em}#3\hspace{2em}
-        \textbf{DIFFICULTY}\hspace{0.5em}#4
-    }
-    \vspace*{-0.004\textheight}
+	\vspace*{0.0055\textheight}
+	{
+		\centering
+		\textbf{SERVES}\hspace{0.5em}#1\hspace{2em}
+		\textbf{PREP}\hspace{0.5em}#2\hspace{2em}
+		\textbf{COOKING}\hspace{0.5em}#3\hspace{2em}
+		\textbf{DIFFICULTY}\hspace{0.5em}#4\par
+	}
+	\vspace*{-0.004\textheight}
 
-    \seprule
+	\seprule
 
-    \vspace*{1em}
+	\vspace*{1em}
 }
 
 % Custom environment for ingredients list
 \newenvironment{ingredients}{
-    \switchcolumn[0]*
-    
-    \renewcommand\item[1]{\textit{\small ##1}\par\vspace{0.01\textheight}}
+	\switchcolumn[0]*
+
+	\renewcommand\item[1]{\textit{\small ##1}\par\vspace{0.01\textheight}}
 }{
 }
 
 % Custom environment for instructions
 \NewDocumentEnvironment{instructions}{ +b }{
-    \switchcolumn[1]
-    \setstretch{1.1}
+	\switchcolumn[1]
+	\setstretch{1.1}
 
-    \let\olditem\item
-    \renewcommand\item[1]{\olditem \hspace{-3pt}{\large ##1}}
+	\let\olditem\item
+	\renewcommand\item[1]{\olditem \hspace{-3pt}{\large ##1}}
 
-    \begin{sloppypar}
-        \begin{enumerate}[
-            align=left,
-            leftmargin=0pt,
-            itemindent=!,
-        ]
-            #1
-        \end{enumerate}
-    \end{sloppypar}
+	\begin{sloppypar}
+		\begin{enumerate}[
+				align=left,
+				leftmargin=0pt,
+				itemindent=!,
+			]
+			#1
+		\end{enumerate}
+	\end{sloppypar}
 
-    \setstretch{1}
+	\setstretch{1}
 }
 
 \newcommand{\recipenote}[1]{
-    \switchcolumn[1]
-    
-    \vspace{1em}
-    {\color{textgray}\textit{#1}}
+	\switchcolumn[1]
+
+	\vspace{1em}
+	{\color{textgray}\textit{#1}}
 }
