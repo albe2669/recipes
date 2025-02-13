@@ -1,6 +1,7 @@
 use anyhow::Result;
 use cooklang::{
-    ingredient_list::GroupedIngredient, metadata::StdKey, quantity, Content, Converter, Item, Metadata, Quantity, ScaledRecipe, Step
+    ingredient_list::GroupedIngredient, metadata::StdKey, Content, Converter, Item, Metadata,
+    Quantity, ScaledRecipe, Step,
 };
 
 pub fn create_recipe(recipe: ScaledRecipe, converter: &Converter) -> Result<String> {
@@ -53,10 +54,6 @@ fn environ_end(env: &str) -> String {
     format!("\\end{{{}}}", env)
 }
 
-fn environment(env: &str, content: &str) -> String {
-    format!("{}\n{}\n{}", environ_begin(env), content, environ_end(env))
-}
-
 fn format_time(time: u64) -> String {
     format!("{} mins", time)
 }
@@ -92,11 +89,11 @@ fn recipe_meta(meta: &Metadata) -> String {
 }
 
 fn quantity_fmt(qty: &Quantity) -> String {
-                if let Some(unit) = qty.unit() {
-                    format!("{} {}", qty.value(), unit)
-                } else {
-                    format!("{}", qty.value())
-                }
+    if let Some(unit) = qty.unit() {
+        format!("{} {}", qty.value(), unit)
+    } else {
+        format!("{}", qty.value())
+    }
 }
 
 fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> String {
@@ -122,9 +119,7 @@ fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> String {
 
         let content = quantity
             .iter()
-            .map(|qty| {
-                quantity_fmt(qty)
-            })
+            .map(quantity_fmt)
             .reduce(|a, b| format!("{}, {}", a, b))
             .unwrap_or_default();
 
@@ -180,11 +175,7 @@ fn step_text(recipe: &ScaledRecipe, step: &Step) -> String {
 
                 match (&timer.quantity, &timer.name) {
                     (Some(quantity), Some(name)) => {
-                        step_text += &format!(
-                            "{} ({})",
-                            quantity_fmt(quantity),
-                            name
-                        );
+                        step_text += &format!("{} ({})", quantity_fmt(quantity), name);
                     }
                     (Some(quantity), None) => {
                         step_text += &quantity_fmt(quantity);
