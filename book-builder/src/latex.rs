@@ -1,7 +1,6 @@
 use anyhow::Result;
 use cooklang::{
-    ingredient_list::GroupedIngredient, metadata::StdKey, Content, Converter, Item, Metadata,
-    ScaledRecipe, Section, Step,
+    ingredient_list::GroupedIngredient, metadata::StdKey, quantity, Content, Converter, Item, Metadata, Quantity, ScaledRecipe, Step
 };
 
 pub fn create_recipe(recipe: ScaledRecipe, converter: &Converter) -> Result<String> {
@@ -20,7 +19,7 @@ pub fn create_recipe(recipe: ScaledRecipe, converter: &Converter) -> Result<Stri
         &recipe_meta(&recipe.metadata),
         &environ_begin("recipe"),
         &ingredient_list(&recipe.group_ingredients(converter)),
-        &instruction_list(&recipe.sections()),
+        &instruction_list(&recipe),
         &environ_end("recipe"),
     ];
 
@@ -92,6 +91,14 @@ fn recipe_meta(meta: &Metadata) -> String {
     command("recipemeta", args.iter().map(|x| x.as_str()).collect())
 }
 
+fn quantity_fmt(qty: &Quantity) -> String {
+                if let Some(unit) = qty.unit() {
+                    format!("{} {}", qty.value(), unit)
+                } else {
+                    format!("{}", qty.value())
+                }
+}
+
 fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> String {
     let mut latex = Vec::with_capacity(ingredients.len() + 2);
     latex.push(environ_begin("ingredients"));
@@ -110,40 +117,39 @@ fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> String {
         let mut igr = vec![];
 
         if ingredient.modifiers().is_optional() {
-            igr.push("\textit{(optional)}");
+            igr.push("\\textit{(optional)}");
         }
 
         let content = quantity
             .iter()
             .map(|qty| {
-                if let Some(unit) = qty.unit() {
-                    format!("{} {}", qty.value(), unit)
-                } else {
-                    format!("{}", qty.value())
-                }
+                quantity_fmt(qty)
             })
             .reduce(|a, b| format!("{}, {}", a, b))
-            .unwrap();
-        igr.push(&content);
+            .unwrap_or_default();
+
+        if !content.is_empty() {
+            igr.push(&content);
+        }
 
         let display_name = ingredient.display_name().to_string();
         igr.push(&display_name);
 
-        latex.push(simple_command("ingredient", &igr.join(" ")));
+        latex.push(simple_command("item", &igr.join(" ")));
     }
 
     latex.push(environ_end("ingredients"));
     latex.join("\n")
 }
 
-fn instruction_list() -> String {
-    let mut latex = Vec::with_capacity(sections.len() + 2);
+fn instruction_list(recipe: &ScaledRecipe) -> String {
+    let mut latex = Vec::with_capacity(recipe.sections.len() + 2);
     latex.push(environ_begin("instructions"));
 
-    for section in sections {
+    for section in recipe.sections.iter() {
         for content in section.content.clone() {
             let instruction = match content {
-                Content::Step(step) => step_text(&step),
+                Content::Step(step) => step_text(recipe, &step),
                 Content::Text(text) => text,
             };
 
@@ -155,7 +161,7 @@ fn instruction_list() -> String {
     latex.join("\n")
 }
 
-fn step_text(step: &Step) -> String {
+fn step_text(recipe: &ScaledRecipe, step: &Step) -> String {
     let mut step_text = String::new();
 
     for item in &step.items {
@@ -163,55 +169,35 @@ fn step_text(step: &Step) -> String {
             Item::Text { value } => step_text += value,
             &Item::Ingredient { index } => {
                 let igr = &recipe.ingredients[index];
-                write!(
-                    &mut step_text,
-                    "{}",
-                    igr.display_name().paint(styles().ingredient)
-                )
-                .unwrap();
-                let pos = write_igr_count(&mut step_text, &step_igrs_dedup, index, &igr.name);
-                if step_igrs_dedup[igr.name.as_str()].contains(&index) {
-                    step_igrs_line.push((igr, pos));
-                }
+                step_text += igr.display_name().as_ref();
             }
             &Item::Cookware { index } => {
                 let cookware = &recipe.cookware[index];
-                write!(&mut step_text, "{}", cookware.name.paint(styles().cookware)).unwrap();
+                step_text += &cookware.name;
             }
             &Item::Timer { index } => {
                 let timer = &recipe.timers[index];
 
                 match (&timer.quantity, &timer.name) {
                     (Some(quantity), Some(name)) => {
-                        let s = format!(
+                        step_text += &format!(
                             "{} ({})",
-                            quantity_fmt(quantity).paint(styles().timer),
-                            name.paint(styles().timer),
+                            quantity_fmt(quantity),
+                            name
                         );
-                        write!(&mut step_text, "{}", s).unwrap();
                     }
                     (Some(quantity), None) => {
-                        write!(
-                            &mut step_text,
-                            "{}",
-                            quantity_fmt(quantity).paint(styles().timer)
-                        )
-                        .unwrap();
+                        step_text += &quantity_fmt(quantity);
                     }
                     (None, Some(name)) => {
-                        write!(&mut step_text, "{}", name.paint(styles().timer)).unwrap();
+                        step_text += name;
                     }
                     (None, None) => unreachable!(), // guaranteed in parsing
                 }
             }
             &Item::InlineQuantity { index } => {
                 let q = &recipe.inline_quantities[index];
-                write!(
-                    &mut step_text,
-                    "{}",
-                    quantity_fmt(q).paint(styles().inline_quantity)
-                )
-                .unwrap()
+                step_text += &quantity_fmt(q).to_string();
             }
         }
     }
