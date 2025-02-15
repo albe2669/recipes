@@ -42,7 +42,7 @@ fn command(command: &str, args: Vec<&str>) -> String {
     )
 }
 
-fn simple_command(acommand: &str, arg: &str) -> String {
+pub fn simple_command(acommand: &str, arg: &str) -> String {
     command(acommand, vec![arg])
 }
 

@@ -5,32 +5,61 @@ mod latex;
 use anyhow::Result;
 use clap::Parser;
 use cooklang::{convert::System, CooklangParser};
+use io::replace_in_main_tex;
 
 fn main() -> Result<()> {
     let cli = cli::Cli::parse();
 
+    io::clone_folder_to_target(&cli.latex_dir, &cli.latex_out_dir)?;
+
+    let mut inputs = String::new();
+
     for collection in cli.collections {
-        handle_collection(&collection, cli.convert)?;
+        inputs += &format!(
+            "{}\n",
+            latex::simple_command("chapter", &io::get_collection_name(&collection))
+        );
+        inputs += handle_collection(&collection, cli.convert, &cli.latex_out_dir)?
+            .iter()
+            .map(|x| latex::simple_command("input", x))
+            .reduce(|a, b| format!("{}\n{}", a, b))
+            .unwrap_or_default()
+            .as_str();
     }
+
+    replace_in_main_tex(&cli.latex_out_dir, &inputs)?;
 
     Ok(())
 }
 
-fn handle_collection(collection: &str, convert: Option<System>) -> Result<()> {
+fn handle_collection(
+    collection: &str,
+    convert: Option<System>,
+    out_dir: &str,
+) -> Result<Vec<String>> {
     let parser = CooklangParser::extended();
     let converter = parser.converter();
 
     let files = io::list_dir(collection)?;
+    let mut result_files = Vec::with_capacity(files.len());
+
+    let collection_name = io::get_collection_name(collection);
+
     for file in files {
         let contents = io::read_file(&file)?;
+        let file_name = file
+            .file_name()
+            .expect("File must have a name")
+            .to_str()
+            .expect("Could not convert to str");
 
         let recipe = match parser.parse(&contents).into_result() {
             Ok((recipe, warnings)) => {
-                warnings.eprint(&file, &contents, true)?;
+                warnings.eprint(file_name, &contents, true)?;
                 recipe
             }
             Err(e) => {
-                e.eprint(&file, &contents, true)?;
+                e.eprint(file_name, &contents, true)?;
                 return Err(e.into());
             }
         };
@@ -47,8 +76,13 @@ fn handle_collection(collection: &str, convert: Option<System>) -> Result<()> {
         }
 
         let latex = latex::create_recipe(scaled, converter)?;
-        println!("{}", latex);
+        result_files.push(io::write_recipe(
+            out_dir,
+            &collection_name,
+            file_name,
+            &latex,
+        )?);
     }
 
-    Ok(())
+    Ok(result_files)
 }
