@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -15,7 +15,7 @@ pub fn list_dir(path: &str) -> Result<Vec<PathBuf>> {
 }
 
 pub fn read_file(path: &PathBuf) -> Result<String> {
-    let contents = fs::read_to_string(path)?;
+    let contents = fs::read_to_string(path).context(format!("Could not read file: {:?}", path))?;
     Ok(contents)
 }
 
@@ -27,7 +27,13 @@ pub fn clone_folder_to_target(source: &str, target: &str) -> Result<()> {
         let target_path =
             std::path::Path::new(target).join(file.file_name().expect("File must have a name"));
         println!("Copying {:?} to {:?}", file, target_path);
-        fs::copy(&file, target_path)?;
+        fs::copy(&file, &target_path).with_context(|| {
+            format!(
+                "Could not copy file {:?} to {:?}",
+                file,
+                target_path.display()
+            )
+        })?;
     }
 
     Ok(())
@@ -55,7 +61,7 @@ pub fn write_recipe(
             .file_stem()
             .expect("File name must be present")
             .to_str()
-            .unwrap()
+            .expect("Could not convert to str")
     );
 
     let out_path = std::path::Path::new(out_dir);
@@ -64,8 +70,8 @@ pub fn write_recipe(
     let target_dir = out_path.join(collection_name);
     let target_file = out_path.join(&relative_path);
 
-    fs::create_dir_all(target_dir)?;
-    fs::write(target_file, contents)?;
+    fs::create_dir_all(target_dir).context("Could not create target directory")?;
+    fs::write(target_file, contents).context("Could not write to target file")?;
 
     Ok(relative_path
         .to_str()

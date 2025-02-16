@@ -4,48 +4,43 @@ from dagger import dag, function, object_type
 
 @object_type
 class Recipes:
-    chef_version: str = "v0.10.0"
+    def build_book_builder(self, source: dagger.Directory) -> dagger.File:
+        return (
+            dag.container()
+            .from_("rust:alpine")
+            .with_exec(
+                ["apk", "add", "--update", "--no-cache", "musl-dev", "alpine-sdk"]
+            )
+            .with_directory("/app", source)
+            .with_workdir("/app")
+            .with_exec(["cargo", "build", "--release"])
+            # .with_mounted_cache("/app/target", dag.cache_volume("book-builder-target"))
+            .file("/app/target/release/book-builder")
+        )
 
-    def create_container(self) -> dagger.Container:
-        """Returns a container that echoes whatever string argument is provided"""
-
-        chef_url = f"https://github.com/Zheoni/cooklang-chef/releases/download/{self.chef_version}/chef-x86_64-unknown-linux-musl.tar.gz"
-
+    def build_latex_env(self) -> dagger.Container:
         return (
             dag.container()
             .from_("alpine:latest")
-            .with_exec(["apk", "add", "--update", "--no-cache", "curl"])
-            .with_exec(["curl", "-sSL", chef_url, "-o", "/tmp/chef.tar.gz"])
-            .with_exec(["tar", "-xzf", "/tmp/chef.tar.gz", "-C", "/usr/local/bin"])
-            .with_exec(["rm", "/tmp/chef.tar.gz"])
+            .with_exec(["apk", "add", "--update", "--no-cache", "tectonic"])
         )
 
     @function
-    async def get_markdown(
+    async def get_pdf(
         self,
         source: dagger.Directory,
-        recipe_path: str,
-        container: dagger.Container | None = None,
-    ) -> str:
-        if container is None:
-            container = self.create_container()
+    ) -> dagger.File:
+        latex_env = self.build_latex_env()
+        book_builder = await self.build_book_builder(source.directory("book-builder"))
 
-        """Returns lines that match a pattern in the files of the provided Directory"""
-        return await (
-            container.with_mounted_directory("/mnt", source)
-            .with_workdir("/mnt")
-            .with_exec(["chef", "recipe", recipe_path, "--format", "markdown"])
-            .stdout()
+        latex_env = (
+            self.build_latex_env()
+            .with_directory("/app", source)
+            .with_workdir("/app")
+            .with_file("/app/book-builder", book_builder, permissions=0o755)
+            .with_exec(["./book-builder", "-l", "latex", "-o", "/app/out", "./Dinner"])
+            .with_workdir("/app/out")
+            .with_exec(["tectonic", "main.tex"])
         )
 
-    @function
-    async def read_recipe(self, source: dagger.Directory, recipe_path: str) -> str:
-        container = self.create_container()
-
-        """Returns lines that match a pattern in the files of the provided Directory"""
-        return await (
-            container.with_mounted_directory("/mnt", source)
-            .with_workdir("/mnt")
-            .with_exec(["chef", "recipe", recipe_path])
-            .stdout()
-        )
+        return latex_env.file("/app/out/main.pdf")

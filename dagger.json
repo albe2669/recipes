@@ -2,5 +2,9 @@
   "name": "recipes",
   "engineVersion": "v0.15.3",
   "sdk": "python",
-  "source": "dagger"
+  "source": "dagger",
+  "exclude": [
+    "**/target",
+    ".git"
+  ]
 }
