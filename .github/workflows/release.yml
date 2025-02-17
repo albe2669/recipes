@@ -24,6 +24,8 @@ jobs:
           git config --global user.name "{{ secrets.GIT_USER }}"
       - name: Create a tag
         run: |
+          git branch --show-current
+          git pull
           tag=$(date '+%Y-%m-%dT%H%M%S')
           git tag -a "$tag" -m "Release $tag"
           git push origin --follow-tags
