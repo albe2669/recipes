@@ -18,6 +18,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: output-pdf
+      - name: Setup git
+        run: |
+          git config --global user.email "{{ secrets.GIT_MAIL }}"
+          git config --global user.name "{{ secrets.GIT_USER }}"
       - name: Create a tag
         run: |
           tag=$(date '+%Y-%m-%dT%H%M%S')
