@@ -42,5 +42,5 @@ jobs:
         with:
           tag_name: ${{ steps.create_tag.outputs.tag }}
           body_path: changelog.md
-          files: |
-            ${{ github.workspace }}/output.pdf
+          # files: |
+          #   ${{ github.workspace }}/output.pdf
