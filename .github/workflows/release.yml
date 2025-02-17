@@ -6,8 +6,8 @@ permissions:
   contents: write
 
 jobs:
-  # build:
-  #   uses: ./.github/workflows/build.yml
+  build:
+    uses: ./.github/workflows/build.yml
 
   release:
     name: release
@@ -18,10 +18,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
-      # - name: Download artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: output-pdf
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: output-pdf
       - name: Setup git
         run: |
           git config user.name github-actions
@@ -42,5 +42,5 @@ jobs:
         with:
           tag_name: ${{ steps.create_tag.outputs.tag }}
           body_path: changelog.md
-          # files: |
-          #   ${{ github.workspace }}/output.pdf
+          files: |
+            ${{ github.workspace }}/output.pdf
