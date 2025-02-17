@@ -27,10 +27,12 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
       - name: Create a tag
+        id: create_tag
         run: |
           tag=$(date '+%Y-%m-%dT%H%M%S')
           git tag -a "$tag" -m "Release $tag"
           git push origin --follow-tags
+          echo "tag=$tag" >> $GITHUB_OUTPUT
       - name: Create changelog
         run: |
           echo "## Changes since last release" > changelog.md
@@ -38,6 +40,7 @@ jobs:
       - name: Create a release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.create_tag.outputs.tag }}
           body_path: changelog.md
           files: |
             ${{ github.workspace }}/output.pdf
