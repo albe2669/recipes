@@ -2,6 +2,8 @@ name: release
 on:
   push:
     branches: [master]
+permissions:
+  contents: write
 
 jobs:
   # build:
@@ -22,8 +24,8 @@ jobs:
       #     name: output-pdf
       - name: Setup git
         run: |
-          git config --global user.email "{{ secrets.GIT_MAIL }}"
-          git config --global user.name "{{ secrets.GIT_USER }}"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
       - name: Create a tag
         run: |
           tag=$(date '+%Y-%m-%dT%H%M%S')
