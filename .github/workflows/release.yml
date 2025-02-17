@@ -20,8 +20,8 @@ jobs:
           name: output-pdf
       - name: Create a tag
         run: |
-          tag=$(date '+%Y-%m-%dT%H:%M:%S')
-          git tag -a "$tag" -m "Release $(tag)"
+          tag=$(date '+%Y-%m-%dT%H%M%S')
+          git tag -a "$tag" -m "Release $tag"
           git push origin --follow-tags
       - name: Create changelog
         run: |
