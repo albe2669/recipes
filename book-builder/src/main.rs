@@ -27,8 +27,12 @@ fn main() -> Result<()> {
 
         match transpiler.transpile_collection(collection_path) {
             Ok(recipe_files) => {
-                for file in recipe_files {
-                    latex.add_simple_command("input", &file);
+                let mut iter = recipe_files.iter().peekable();
+                while let Some(recipe_file) = iter.next() {
+                    latex.add_simple_command("input", recipe_file);
+                    if iter.peek().is_some() {
+                        latex.add_command("newpage", &[]);
+                    }
                 }
             }
             Err(e) => eprintln!(
