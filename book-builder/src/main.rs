@@ -12,22 +12,20 @@ fn main() -> Result<()> {
 
     io::clone_folder_to_target(&cli.latex_dir, &cli.latex_out_dir)?;
 
-    let mut inputs = String::new();
+    let mut latex = latex::LatexBuilder::new();
 
     for collection in cli.collections {
-        inputs += &format!(
-            "{}\n",
-            latex::simple_command("chapter", &io::get_collection_name(&collection))
-        );
-        inputs += handle_collection(&collection, cli.convert, &cli.latex_out_dir)?
+        let collection_name = io::get_collection_name(&collection);
+        latex.add_simple_command("chapter", &collection_name);
+
+        handle_collection(&collection, cli.convert, &cli.latex_out_dir)?
             .iter()
-            .map(|x| latex::simple_command("input", x))
-            .reduce(|a, b| format!("{}\n{}", a, b))
-            .unwrap_or_default()
-            .as_str();
+            .for_each(|x| {
+                latex.add_simple_command("input", x);
+            });
     }
 
-    replace_in_main_tex(&cli.latex_out_dir, &inputs)?;
+    replace_in_main_tex(&cli.latex_out_dir, &latex.build())?;
 
     Ok(())
 }

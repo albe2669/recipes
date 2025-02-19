@@ -4,54 +4,77 @@ use cooklang::{
     Quantity, ScaledRecipe, Step,
 };
 
+pub struct LatexBuilder {
+    latex: Vec<String>,
+}
+
+impl LatexBuilder {
+    pub fn new() -> Self {
+        Self { latex: Vec::new() }
+    }
+
+    fn add_command(&mut self, command: &str, args: Vec<&str>) -> &mut Self {
+        self.latex.push(format!(
+            "\\{}{}",
+            command,
+            args.iter()
+                .map(|x| format!("{{{}}}", x))
+                .collect::<Vec<String>>()
+                .join("")
+        ));
+
+        self
+    }
+
+    pub fn add_simple_command(&mut self, command: &str, arg: &str) -> &mut Self {
+        self.add_command(command, vec![arg])
+    }
+
+    pub fn add_env(&mut self, env: &str, content: &LatexBuilder) -> &mut Self {
+        self.add_simple_command("begin", env);
+        self.latex.extend(content.latex.iter().cloned());
+        self.add_simple_command("end", env);
+
+        self
+    }
+
+    pub fn build(&self) -> String {
+        self.latex.join("\n")
+    }
+}
+
 pub fn create_recipe(recipe: ScaledRecipe, converter: &Converter) -> Result<String> {
-    let latex = [
-        &simple_command(
+    let latex = &mut LatexBuilder::new();
+    latex
+        .add_simple_command(
             "recipeheader",
             recipe.metadata.title().expect("Title must be defined"),
-        ),
-        &simple_command(
+        )
+        .add_simple_command(
             "recipedesc",
             recipe
                 .metadata
                 .description()
                 .expect("Description must be defined"),
-        ),
-        &recipe_meta(&recipe.metadata),
-        &environ_begin("recipe"),
-        &ingredient_list(&recipe.group_ingredients(converter)),
-        &instruction_list(&recipe),
-        &environ_end("recipe"),
-    ];
+        )
+        .add_command(
+            "recipemeta",
+            recipe_meta(&recipe.metadata)
+                .iter()
+                .map(|x| x.as_str())
+                .collect(),
+        )
+        .add_env(
+            "recipe",
+            &LatexBuilder::new()
+                .add_env(
+                    "ingredients",
+                    &ingredient_list(&recipe.group_ingredients(converter)),
+                )
+                .add_env("instructions", &instruction_list(&recipe)),
+        );
 
-    Ok(latex
-        .iter()
-        .map(|x| x.to_string())
-        .reduce(|a, b| format!("{}\n{}", a, b))
-        .unwrap())
-}
-
-fn command(command: &str, args: Vec<&str>) -> String {
-    format!(
-        "\\{}{}",
-        command,
-        args.iter()
-            .map(|x| format!("{{{}}}", x))
-            .collect::<Vec<String>>()
-            .join("")
-    )
-}
-
-pub fn simple_command(acommand: &str, arg: &str) -> String {
-    command(acommand, vec![arg])
-}
-
-fn environ_begin(env: &str) -> String {
-    format!("\\begin{{{}}}", env)
-}
-
-fn environ_end(env: &str) -> String {
-    format!("\\end{{{}}}", env)
+    Ok(latex.build())
 }
 
 fn format_time(time: u64) -> String {
@@ -65,7 +88,7 @@ fn get_u64_meta(meta: &Metadata, key: StdKey) -> Option<u64> {
     }
 }
 
-fn recipe_meta(meta: &Metadata) -> String {
+fn recipe_meta(meta: &Metadata) -> Vec<String> {
     let mut args = vec!["".to_string(); 4];
 
     if let Some(servings) = meta.servings() {
@@ -85,7 +108,7 @@ fn recipe_meta(meta: &Metadata) -> String {
 
     args[3] = "Difficulty".to_string(); // TODO: Difficulty
 
-    command("recipemeta", args.iter().map(|x| x.as_str()).collect())
+    args
 }
 
 fn quantity_fmt(qty: &Quantity) -> String {
@@ -96,9 +119,8 @@ fn quantity_fmt(qty: &Quantity) -> String {
     }
 }
 
-fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> String {
-    let mut latex = Vec::with_capacity(ingredients.len() + 2);
-    latex.push(environ_begin("ingredients"));
+fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> LatexBuilder {
+    let mut latex = LatexBuilder::new();
 
     for entry in ingredients {
         let GroupedIngredient {
@@ -130,16 +152,14 @@ fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> String {
         let display_name = ingredient.display_name().to_string();
         igr.push(&display_name);
 
-        latex.push(simple_command("item", &igr.join(" ")));
+        latex.add_simple_command("item", &igr.join(" "));
     }
 
-    latex.push(environ_end("ingredients"));
-    latex.join("\n")
+    latex
 }
 
-fn instruction_list(recipe: &ScaledRecipe) -> String {
-    let mut latex = Vec::with_capacity(recipe.sections.len() + 2);
-    latex.push(environ_begin("instructions"));
+fn instruction_list(recipe: &ScaledRecipe) -> LatexBuilder {
+    let mut latex = LatexBuilder::new();
 
     for section in recipe.sections.iter() {
         for content in section.content.clone() {
@@ -148,12 +168,11 @@ fn instruction_list(recipe: &ScaledRecipe) -> String {
                 Content::Text(text) => text,
             };
 
-            latex.push(simple_command("item", &instruction));
+            latex.add_simple_command("item", &instruction);
         }
     }
 
-    latex.push(environ_end("instructions"));
-    latex.join("\n")
+    latex
 }
 
 fn step_text(recipe: &ScaledRecipe, step: &Step) -> String {
