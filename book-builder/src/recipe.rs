@@ -1,9 +1,97 @@
-use crate::latex::LatexBuilder;
+use std::path::{Path, PathBuf};
+
+use crate::{io, latex::LatexBuilder};
 use anyhow::{Context, Result};
 use cooklang::{
-    ingredient_list::GroupedIngredient, metadata::StdKey, Content, Converter, Item, Metadata,
-    Quantity, ScaledRecipe, Step,
+    convert::System, ingredient_list::GroupedIngredient, metadata::StdKey, scale::Servings,
+    Content, Converter, CooklangParser, Item, Metadata, Quantity, Recipe, ScalableValue,
+    ScaledRecipe, Step,
 };
+
+#[derive(Debug)]
+pub struct RecipeTranspiler<'a> {
+    parser: CooklangParser,
+    convert_system: Option<System>,
+    output_dir: &'a Path,
+}
+
+impl<'a> RecipeTranspiler<'a> {
+    pub fn new(convert_system: Option<System>, output_dir: &'a Path) -> Self {
+        Self {
+            parser: CooklangParser::extended(),
+            convert_system,
+            output_dir,
+        }
+    }
+
+    pub fn transpile_collection(&self, collection_path: &Path) -> Result<Vec<String>> {
+        let files = io::list_dir(collection_path)
+            .with_context(|| format!("Failed to read collection: {}", collection_path.display()))?;
+
+        let collection_name = get_collection_name(collection_path)?;
+        let mut result_files = Vec::with_capacity(files.len());
+
+        for file in files {
+            match self.transpile_recipe(&file, &collection_name) {
+                Ok(relative_path) => result_files.push(relative_path),
+                Err(e) => eprintln!(
+                    "Warning: Failed to compile recipe {}: {}",
+                    file.display(),
+                    e
+                ),
+            }
+        }
+
+        if result_files.is_empty() {
+            anyhow::bail!(
+                "No recipes were successfully compiled in collection: {}",
+                collection_name
+            );
+        }
+
+        Ok(result_files)
+    }
+
+    fn transpile_recipe(&self, file: &Path, collection_name: &str) -> Result<String> {
+        let contents = io::read_file(file)?;
+        let file_name = file
+            .file_name()
+            .context("Invalid file name")?
+            .to_str()
+            .context("Could not convert to str")?;
+
+        let recipe = self.parse_recipe(&contents, file_name)?;
+        let converter = self.parser.converter();
+
+        let mut scaled = recipe.default_scale();
+        if let Some(system) = self.convert_system {
+            for error in scaled.convert(system, converter) {
+                eprintln!("Warning: {}", error);
+            }
+        }
+
+        let latex = create_recipe(scaled, converter)?;
+
+        write_recipe(self.output_dir, collection_name, file_name, &latex)
+    }
+
+    fn parse_recipe(
+        &self,
+        contents: &str,
+        file_name: &str,
+    ) -> Result<Recipe<Servings, ScalableValue>> {
+        match self.parser.parse(contents).into_result() {
+            Ok((recipe, warnings)) => {
+                warnings.eprint(file_name, contents, true)?;
+                Ok(recipe)
+            }
+            Err(e) => {
+                e.eprint(file_name, contents, true)?;
+                Err(e.into())
+            }
+        }
+    }
+}
 
 fn get_u64_meta(meta: &Metadata, key: StdKey) -> Option<u64> {
     meta.get(key).and_then(|x| x.as_u64())
@@ -174,4 +262,47 @@ fn format_timer(quantity: &Option<Quantity>, name: &Option<String>) -> String {
         (None, Some(name)) => name.clone(),
         (None, None) => unreachable!("Timer must have either quantity or name"),
     }
+}
+
+pub fn get_collection_name(path: &Path) -> Result<String> {
+    path.file_name()
+        .context("Invalid collection path")?
+        .to_str()
+        .context("Invalid collection name")
+        .map(String::from)
+}
+
+pub fn write_recipe(
+    out_dir: &Path,
+    collection_name: &str,
+    file_name: &str,
+    contents: &str,
+) -> Result<String> {
+    let file_stem = Path::new(file_name)
+        .file_stem()
+        .context("Invalid recipe file name")?
+        .to_str()
+        .context("Could not convert to str")?;
+
+    let relative_path = PathBuf::from(collection_name).join(format!("{}.tex", file_stem));
+
+    let target_dir = out_dir.join(collection_name);
+    let target_file = out_dir.join(&relative_path);
+
+    io::create_dir_all(&target_dir)?;
+    io::write_file(&target_file, contents)?;
+
+    relative_path
+        .to_str()
+        .context("Failed to compute relative path")
+        .map(String::from)
+}
+
+pub fn replace_in_main_tex(out_dir: &Path, new_content: &str) -> Result<()> {
+    let main_tex = out_dir.join("main.tex");
+
+    let main_tex_contents = io::read_file(&main_tex)?;
+    let new_contents = main_tex_contents.replace(r"%{{recipes}}", new_content);
+
+    io::write_file(&main_tex, &new_contents)
 }
