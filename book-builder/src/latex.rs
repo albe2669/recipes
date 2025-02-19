@@ -1,158 +1,171 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cooklang::{
     ingredient_list::GroupedIngredient, metadata::StdKey, Content, Converter, Item, Metadata,
     Quantity, ScaledRecipe, Step,
 };
 
+#[derive(Default)]
 pub struct LatexBuilder {
-    latex: Vec<String>,
+    content: Vec<String>,
 }
 
 impl LatexBuilder {
     pub fn new() -> Self {
-        Self { latex: Vec::new() }
+        Self::default()
     }
 
-    fn add_command(&mut self, command: &str, args: Vec<&str>) -> &mut Self {
-        self.latex.push(format!(
-            "\\{}{}",
-            command,
-            args.iter()
-                .map(|x| format!("{{{}}}", x))
-                .collect::<Vec<String>>()
-                .join("")
-        ));
+    fn add_command(&mut self, command: &str, args: &[&str]) -> &mut Self {
+        let formatted_args = args
+            .iter()
+            .map(|x| format!("{{{}}}", x))
+            .collect::<Vec<String>>()
+            .join("");
 
+        self.content
+            .push(format!("\\{}{}", command, formatted_args));
         self
     }
 
     pub fn add_simple_command(&mut self, command: &str, arg: &str) -> &mut Self {
-        self.add_command(command, vec![arg])
+        self.add_command(command, &[arg])
     }
 
     pub fn add_env(&mut self, env: &str, content: &LatexBuilder) -> &mut Self {
         self.add_simple_command("begin", env);
-        self.latex.extend(content.latex.iter().cloned());
-        self.add_simple_command("end", env);
-
-        self
+        self.content.extend(content.content.iter().cloned());
+        self.add_simple_command("end", env)
     }
 
     pub fn build(&self) -> String {
-        self.latex.join("\n")
+        self.content.join("\n")
+    }
+}
+
+fn get_u64_meta(meta: &Metadata, key: StdKey) -> Option<u64> {
+    meta.get(key).and_then(|x| x.as_u64())
+}
+
+#[derive(Debug)]
+struct RecipeTime {
+    prep_time: Option<u64>,
+    cook_time: Option<u64>,
+}
+
+impl RecipeTime {
+    fn from_metadata(metadata: &Metadata) -> Self {
+        Self {
+            prep_time: get_u64_meta(metadata, StdKey::PrepTime),
+            cook_time: get_u64_meta(metadata, StdKey::CookTime),
+        }
+    }
+
+    fn format_time(minutes: u64) -> String {
+        if minutes < 60 {
+            format!("{} mins", minutes)
+        } else {
+            let hours = minutes / 60;
+            let mins = minutes % 60;
+            if mins == 0 {
+                format!("{} hrs", hours)
+            } else {
+                format!("{} hrs {} mins", hours, mins)
+            }
+        }
     }
 }
 
 pub fn create_recipe(recipe: ScaledRecipe, converter: &Converter) -> Result<String> {
-    let latex = &mut LatexBuilder::new();
-    latex
-        .add_simple_command(
-            "recipeheader",
-            recipe.metadata.title().expect("Title must be defined"),
-        )
-        .add_simple_command(
-            "recipedesc",
-            recipe
-                .metadata
-                .description()
-                .expect("Description must be defined"),
-        )
-        .add_command(
-            "recipemeta",
-            recipe_meta(&recipe.metadata)
-                .iter()
-                .map(|x| x.as_str())
-                .collect(),
-        )
-        .add_env(
-            "recipe",
-            &LatexBuilder::new()
-                .add_env(
-                    "ingredients",
-                    &ingredient_list(&recipe.group_ingredients(converter)),
-                )
-                .add_env("instructions", &instruction_list(&recipe)),
-        );
+    let title = recipe
+        .metadata
+        .title()
+        .context("Recipe must have a title")?;
+    let description = recipe
+        .metadata
+        .description()
+        .context("Recipe must have a description")?;
 
-    Ok(latex.build())
+    let mut latex = LatexBuilder::new();
+    let recipe_content = build_recipe_content(&recipe, converter)?;
+
+    let meta = recipe_meta(&recipe.metadata);
+    let meta = meta.iter().map(|x| x.as_str()).collect::<Vec<&str>>();
+
+    Ok(latex
+        .add_simple_command("recipeheader", title)
+        .add_simple_command("recipedesc", description)
+        .add_command("recipemeta", &meta)
+        .add_env("recipe", &recipe_content)
+        .build())
 }
 
-fn format_time(time: u64) -> String {
-    format!("{} mins", time)
-}
+fn build_recipe_content(recipe: &ScaledRecipe, converter: &Converter) -> Result<LatexBuilder> {
+    let mut content = LatexBuilder::new();
 
-fn get_u64_meta(meta: &Metadata, key: StdKey) -> Option<u64> {
-    match meta.get(key) {
-        Some(value) => value.as_u64(),
-        None => None,
-    }
+    let ingredients = ingredient_list(&recipe.group_ingredients(converter));
+    let instructions = instruction_list(recipe);
+
+    content
+        .add_env("ingredients", &ingredients)
+        .add_env("instructions", &instructions);
+
+    Ok(content)
 }
 
 fn recipe_meta(meta: &Metadata) -> Vec<String> {
-    let mut args = vec!["".to_string(); 4];
+    let servings = meta
+        .servings()
+        .and_then(|x| x.first().map(|x| x.to_string()))
+        .expect("Servings must be defined");
 
-    if let Some(servings) = meta.servings() {
-        args[0] = servings
-            .first()
-            .expect("Servings must be defined")
-            .to_string()
-    };
+    let times = RecipeTime::from_metadata(meta);
+    let prep_time = times
+        .prep_time
+        .map(RecipeTime::format_time)
+        .unwrap_or_default();
+    let cook_time = times
+        .cook_time
+        .map(RecipeTime::format_time)
+        .unwrap_or_default();
 
-    if let Some(time) = get_u64_meta(meta, StdKey::PrepTime) {
-        args[1] = format_time(time)
-    };
-
-    if let Some(time) = get_u64_meta(meta, StdKey::CookTime) {
-        args[2] = format_time(time)
-    };
-
-    args[3] = "Difficulty".to_string(); // TODO: Difficulty
-
-    args
+    vec![servings, prep_time, cook_time, "Moderate".to_string()]
 }
 
-fn quantity_fmt(qty: &Quantity) -> String {
-    if let Some(unit) = qty.unit() {
-        format!("{} {}", qty.value(), unit)
-    } else {
-        format!("{}", qty.value())
+fn format_quantity(qty: &Quantity) -> String {
+    match qty.unit() {
+        Some(unit) => format!("{} {}", qty.value(), unit),
+        None => format!("{}", qty.value()),
     }
 }
 
 fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> LatexBuilder {
     let mut latex = LatexBuilder::new();
 
-    for entry in ingredients {
-        let GroupedIngredient {
-            ingredient,
-            quantity,
-            ..
-        } = entry;
-
+    for GroupedIngredient {
+        ingredient,
+        quantity,
+        ..
+    } in ingredients
+    {
         if !ingredient.modifiers().should_be_listed() {
             continue;
         }
 
-        let mut igr = vec![];
+        let mut parts = Vec::new();
 
         if ingredient.modifiers().is_optional() {
-            igr.push("\\textit{(optional)}");
+            parts.push("\\textit{(optional)}".to_string());
         }
 
-        let content = quantity
+        if let Some(qty_str) = quantity
             .iter()
-            .map(quantity_fmt)
+            .map(format_quantity)
             .reduce(|a, b| format!("{}, {}", a, b))
-            .unwrap_or_default();
-
-        if !content.is_empty() {
-            igr.push(&content);
+        {
+            parts.push(qty_str);
         }
 
-        let display_name = ingredient.display_name().to_string();
-        igr.push(&display_name);
-
-        latex.add_simple_command("item", &igr.join(" "));
+        parts.push(ingredient.display_name().to_string());
+        latex.add_simple_command("item", &parts.join(" "));
     }
 
     latex
@@ -161,11 +174,11 @@ fn ingredient_list(ingredients: &Vec<GroupedIngredient>) -> LatexBuilder {
 fn instruction_list(recipe: &ScaledRecipe) -> LatexBuilder {
     let mut latex = LatexBuilder::new();
 
-    for section in recipe.sections.iter() {
-        for content in section.content.clone() {
+    for section in &recipe.sections {
+        for content in &section.content {
             let instruction = match content {
-                Content::Step(step) => step_text(recipe, &step),
-                Content::Text(text) => text,
+                Content::Step(step) => step_text(recipe, step),
+                Content::Text(text) => text.clone(),
             };
 
             latex.add_simple_command("item", &instruction);
@@ -176,41 +189,25 @@ fn instruction_list(recipe: &ScaledRecipe) -> LatexBuilder {
 }
 
 fn step_text(recipe: &ScaledRecipe, step: &Step) -> String {
-    let mut step_text = String::new();
+    step.items
+        .iter()
+        .map(|item| match item {
+            Item::Text { value } => value.clone(),
+            Item::Ingredient { index } => recipe.ingredients[*index].display_name().to_string(),
+            Item::Cookware { index } => recipe.cookware[*index].name.clone(),
+            Item::Timer { index } => {
+                format_timer(&recipe.timers[*index].quantity, &recipe.timers[*index].name)
+            }
+            Item::InlineQuantity { index } => format_quantity(&recipe.inline_quantities[*index]),
+        })
+        .collect()
+}
 
-    for item in &step.items {
-        match item {
-            Item::Text { value } => step_text += value,
-            &Item::Ingredient { index } => {
-                let igr = &recipe.ingredients[index];
-                step_text += igr.display_name().as_ref();
-            }
-            &Item::Cookware { index } => {
-                let cookware = &recipe.cookware[index];
-                step_text += &cookware.name;
-            }
-            &Item::Timer { index } => {
-                let timer = &recipe.timers[index];
-
-                match (&timer.quantity, &timer.name) {
-                    (Some(quantity), Some(name)) => {
-                        step_text += &format!("{} ({})", quantity_fmt(quantity), name);
-                    }
-                    (Some(quantity), None) => {
-                        step_text += &quantity_fmt(quantity);
-                    }
-                    (None, Some(name)) => {
-                        step_text += name;
-                    }
-                    (None, None) => unreachable!(), // guaranteed in parsing
-                }
-            }
-            &Item::InlineQuantity { index } => {
-                let q = &recipe.inline_quantities[index];
-                step_text += &quantity_fmt(q).to_string();
-            }
-        }
+fn format_timer(quantity: &Option<Quantity>, name: &Option<String>) -> String {
+    match (quantity, name) {
+        (Some(qty), Some(name)) => format!("{} ({})", format_quantity(qty), name),
+        (Some(qty), None) => format_quantity(qty),
+        (None, Some(name)) => name.clone(),
+        (None, None) => unreachable!("Timer must have either quantity or name"),
     }
-
-    step_text
 }
