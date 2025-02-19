@@ -1,6 +1,7 @@
 mod cli;
 mod io;
 mod latex;
+mod recipe;
 
 use anyhow::Result;
 use clap::Parser;
@@ -73,7 +74,7 @@ fn handle_collection(
             let _ = scaled.convert(to, converter);
         }
 
-        let latex = latex::create_recipe(scaled, converter)?;
+        let latex = recipe::create_recipe(scaled, converter)?;
         result_files.push(io::write_recipe(
             out_dir,
             &collection_name,
