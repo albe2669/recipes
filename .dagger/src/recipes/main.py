@@ -41,7 +41,7 @@ class Recipes:
             .with_directory("/app", source)
             .with_workdir("/app")
             .with_file("/app/cooklatex", cooklatex, permissions=0o755)
-            .with_exec(["./cooklatex", "-l", "template", "-o", "/app/out", "./Dinner"])
+            .with_exec(["./cooklatex", "-l", ".template", "-o", "/app/out", "./Dinner"])
             .with_workdir("/app/out")
             .with_exec(["tectonic", "main.tex"])
         )
