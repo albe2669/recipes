@@ -1,8 +1,6 @@
 {
   "name": "recipes",
-  "engineVersion": "v0.18.8",
-  "sdk": {
-    "source": "python"
-  },
+  "engineVersion": "v0.15.3",
+  "sdk": "python",
   "source": ".dagger"
 }
