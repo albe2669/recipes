@@ -36,13 +36,31 @@ class Recipes:
         latex_env = self.build_latex_env()
         cooklatex = await self.get_cooklatex()
 
+        collections = [
+            "./Morgenmad",
+            "./Salater",
+            "./Supper",
+            "./Saucer",
+            "./Pastaretter",
+            "./Hovedretter",
+            "./'Side retter'",
+            "./Brød",
+            "./Dessert",
+            "./Kage",
+        ]
+
         latex_env = (
             self.build_latex_env()
             .with_directory("/app", source)
             .with_workdir("/app")
             .with_file("/app/cooklatex", cooklatex, permissions=0o755)
-            .with_exec(["./cooklatex", "-l", ".template", "-o", "/app/out", "./Dinner"])
+            .with_exec(
+                ["./cooklatex", "-l", ".template", "-o", "/app/out"] + collections
+            )
             .with_workdir("/app/out")
+            .with_mounted_cache(
+                "/root/.cache/Tectonic", dag.cache_volume("tectonic_cache")
+            )
             .with_exec(["tectonic", "main.tex"])
         )
 

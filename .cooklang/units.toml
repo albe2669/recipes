@@ -1,0 +1,26 @@
+[si.prefixes]
+kilo = []
+hecto = []
+deca = []
+deci = []
+centi = []
+milli = []
+
+[extend.units]
+# l = { names = ["liter", "litre"] }
+s = { names = ["sekund", "sekunder"] }
+min = { names = ["minut", "minutter"] }
+h = { precendence = "before", names = ["time", "timer"] }
+# d = { names = ["dag", "dage"] }
+# kilogram = { aliases = ["kilo"] }
+# c = { names = ["taza", "tazas"] }
+# "fl oz" = { names = ["onza líquida", "onzas líquidas"] }
+# gal = { names = ["galón", "galones"] }
+# pint = { names = ["pinta", "pintas"] }
+# quart = { names = ["cuarto", "cuartos"] }
+# m = { names = ["metro", "metros"] }
+# foot = { names = ["pie", "pies"] }
+# inch = { names = ["pulgada", "pulgadas"] }
+# gram = { names = ["gramo", "gramos"] }
+# ounce = { names = ["onza", "onzas"] }
+# pound = { names = ["libra", "libras"] }
