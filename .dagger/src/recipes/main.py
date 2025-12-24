@@ -55,7 +55,7 @@ class Recipes:
             .with_workdir("/app")
             .with_file("/app/cooklatex", cooklatex, permissions=0o755)
             .with_exec(
-                ["./cooklatex", "-l", ".template", "-o", "/app/out"] + collections
+                ["./cooklatex", "-u", "./.cooklang/units.toml", "-l", ".template", "-o", "/app/out"] + collections
             )
             .with_workdir("/app/out")
             .with_mounted_cache(
