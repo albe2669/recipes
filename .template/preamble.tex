@@ -4,9 +4,10 @@
 \usepackage{xcolor} % colors
 \usepackage{hyperref} % hyperlinks
 \usepackage{xparse} % Command and environment parser
-\usepackage[margin=1in]{geometry}
+\usepackage{ragged2e} % Improved text alignment
 \usepackage{paracol} % Multi columns
-\setlength\columnsep{0.05\textwidth}
+\usepackage{mfirstuc} % First letter capitalization
+\usepackage[danish]{isodate} % Date formatting
 
 
 % ============================================================================
@@ -26,6 +27,9 @@
 % ============================================================================
 % PAGE STYLE
 % ============================================================================
+\usepackage[margin=1in]{geometry}
+\setlength\columnsep{0.05\textwidth}
+
 \usepackage{fancyhdr} % Fancy headers
 \setlength{\headheight}{15pt}
 \setlength{\headsep}{2em}  % This adds 1em of vertical space below the header
@@ -87,6 +91,9 @@
 \setlist{partopsep=0pt, topsep=0pt} % Remove vertical spacing before
 
 
+% ============================================================================
+% DASHES
+% ============================================================================
 \usepackage{dashrule} % Dashes
 \newcommand{\seprule}{\hdashrule[0pt][x]{\textwidth}{0.5pt}{1pt}} % Outputs a dashed horizontal rule to separate major recipe elements
 
@@ -151,28 +158,49 @@
 	\par\vspace{0.01\textheight}%
 }
 
+\NewDocumentCommand{\ingredientsection}{ m }{%
+	\vspace{6pt}%
+	\noindent{\textsc{\small #1}}%
+	\par\noindent\rule{\linewidth}{0.4pt}%
+	\vspace{2pt}%
+}
+
 \NewDocumentEnvironment{ingredients}{}{
 	\switchcolumn[0]*
 }{
 }
 
+% ============================================================================
+% INSTRUCTIONS
+% ============================================================================
+
+\newcounter{stepnumber}
+\NewDocumentCommand{\step}{ +m }{%
+	\stepcounter{stepnumber}%
+	\par\noindent
+	\textbf{\thestepnumber.}\hspace{6pt}\ignorespaces\makefirstuc{#1}%
+	\par\vspace{6pt}%
+}
+
 % Custom environment for instructions
-\NewDocumentEnvironment{instructions}{ +b }{
+\NewDocumentEnvironment{instructions}{}{
 	\switchcolumn[1]
 	\setstretch{1.1}
 
-	\let\olditem\item
-	\renewcommand\item[1]{\olditem \hspace{-3pt}{\large ##1}}
+	\setcounter{stepnumber}{0}
 
 	\begin{sloppypar}
-		\begin{enumerate}[
-				align=left,
-				leftmargin=0pt,
-				itemindent=!,
-			]
-			#1
-		\end{enumerate}
+		}{
 	\end{sloppypar}
 
 	\setstretch{1}
-}{}
+}
+
+\NewDocumentCommand{\instructionsection}{ m }{
+	\vspace{16pt}%
+	\noindent\textbf{\large #1}%
+	\par\noindent\rule{0.3\textwidth}{0.4pt}%
+	\vspace{8pt}%
+	\setcounter{stepnumber}{0}%
+	\par
+}
