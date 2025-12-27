@@ -1,25 +1,31 @@
-
-\usepackage[margin=1in]{geometry}
+% ============================================================================
+% GENERAL PACKAGES
+% ============================================================================
 \usepackage{xcolor} % colors
+\usepackage{hyperref} % hyperlinks
+\usepackage{xparse} % Command and environment parser
+\usepackage[margin=1in]{geometry}
 \usepackage{paracol} % Multi columns
 \setlength\columnsep{0.05\textwidth}
 
-\usepackage{setspace} % Change line spacing
 
-\usepackage{enumitem} % List customisation
-\setlist{partopsep=0pt, topsep=0pt} % Remove vertical spacing before
-
-\setlength{\parindent}{0pt} % Remove paragraph indentation
-
+% ============================================================================
+% FONTS AND ENCODINGS
+% ============================================================================
 \usepackage[T1]{fontenc}  % International characthers
 \usepackage[utf8]{inputenc} % Read UTF8
+\usepackage{fontspec} % Font selection
 
-\usepackage{xparse} % Command and environment parser
+\setmainfont{TeX Gyre Pagella}[
+	BoldFont = *-Bold,
+	ItalicFont = *-Italic,
+]
+\setsansfont{TeX Gyre Heros}
 
-\usepackage{libertine} % font
 
-\usepackage[newlinetospace]{titlesec} % modify headers
-
+% ============================================================================
+% PAGE STYLE
+% ============================================================================
 \usepackage{fancyhdr} % Fancy headers
 \setlength{\headheight}{15pt}
 \setlength{\headsep}{2em}  % This adds 1em of vertical space below the header
@@ -27,12 +33,67 @@
 % Define custom colors
 \definecolor{headercolor}{RGB}{0,0,0}
 \definecolor{textgray}{RGB}{100,100,100}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\footnotesize\thepage\quad$\cdot$\quad\leftmark}
+\fancyhead[RO]{\footnotesize\rightmark\quad$\cdot$\quad\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\chaptermark}[1]{\markboth{\MakeUppercase{#1}}{}}
+\renewcommand{\sectionmark}[1]{\markright{#1}}
+
+% Define the style for regular pages
+\fancypagestyle{main}{
+	\fancyhf{} % clear all header and footer fields
+	\fancyhead[LE,RO]{\thepage} % page number on left of even pages and right of odd pages
+	\fancyhead[RE]{\small\MakeUppercase{\leftmark}} % chapter on right of even pages
+	\fancyhead[LO]{\small\MakeUppercase{\rightmark}} % section on left of odd pages
+	\renewcommand{\headrulewidth}{0pt} % remove header rule
+	\renewcommand{\footrulewidth}{0pt} % remove footer rule
+}
+
+\usepackage{setspace} % Change line spacing
+\setlength{\parindent}{0pt} % Remove paragraph indentation
+
+% ============================================================================
+% CHAPTER AND SECTION STYLING
+% ============================================================================
+\usepackage{titlesec} % modify headers
+\titlespacing*{\subsubsection}{0pt}{0em}{0.5em} % Reduce spacing around subsubsection titles
+
+\titleformat{\chapter}[display]{\vfill\filcenter\bfseries}{}{0ex}{\Huge}%
+[\vfill\null\thispagestyle{empty}\clearpage]
+
+\titlespacing{\chapter}{0pt}{0ex}{0ex}
+
+\titleformat{\section}
+{\normalfont\Large\bfseries\sffamily}
+{\thesection}{1em}{}
+
+% ============================================================================
+% DIFFICULTY DISPLAY
+% ============================================================================
+% \newcounter{diffcount}
+% \newcommand{\difficulty}[1]{%
+%     \setcounter{diffcount}{#1}%
+%     \ifnum\value{diffcount}>0 $\bullet$\else$\circ$\fi%
+%     \ifnum\value{diffcount}>1 $\bullet$\else$\circ$\fi%
+%     \ifnum\value{diffcount}>2 $\bullet$\else$\circ$\fi%
+% }
+
+% ============================================================================
+% LISTS
+% ============================================================================
+\usepackage{enumitem} % List customisation
+\setlist{partopsep=0pt, topsep=0pt} % Remove vertical spacing before
+
 
 \usepackage{dashrule} % Dashes
 \newcommand{\seprule}{\hdashrule[0pt][x]{\textwidth}{0.5pt}{1pt}} % Outputs a dashed horizontal rule to separate major recipe elements
 
-\renewcommand{\chaptermark}[1]{\markboth{Chapter \thechapter: #1}{}}
 
+% ============================================================================
+% RECIPE
+% ============================================================================
 \newenvironment{recipe}{
 	\columnratio{0.32, 0.68}
 	\begin{paracol}{2}
@@ -75,11 +136,23 @@
 	\vspace*{1em}
 }
 
-% Custom environment for ingredients list
-\newenvironment{ingredients}{
-	\switchcolumn[0]*
+\newcommand{\recipenote}[1]{
+	\switchcolumn[1]
 
-	\renewcommand\item[1]{\textit{\small ##1}\par\vspace{0.01\textheight}}
+	\vspace{1em}
+	{\color{textgray}\textit{#1}}
+}
+
+% ============================================================================
+% INGREDIENTS
+% ============================================================================
+\NewDocumentCommand{\ingredient}{ m O{\BooleanFalse} }{%
+	\textit{\small#1 \IfBooleanT{#2}{ (valgfrit)}}%
+	\par\vspace{0.01\textheight}%
+}
+
+\NewDocumentEnvironment{ingredients}{}{
+	\switchcolumn[0]*
 }{
 }
 
@@ -102,11 +175,4 @@
 	\end{sloppypar}
 
 	\setstretch{1}
-}
-
-\newcommand{\recipenote}[1]{
-	\switchcolumn[1]
-
-	\vspace{1em}
-	{\color{textgray}\textit{#1}}
-}
+}{}
