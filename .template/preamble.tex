@@ -155,7 +155,7 @@
 % INGREDIENTS
 % ============================================================================
 \NewDocumentCommand{\ingredient}{ m O{\BooleanFalse} }{%
-	\textit{\small#1 \IfBooleanT{#2}{ (valgfrit)}}%
+  \textit{\small#1\IfBooleanT{#2}{ (valgfrit)}}%
 	\par\vspace{0.01\textheight}%
 }
 
