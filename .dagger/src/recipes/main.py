@@ -37,16 +37,18 @@ class Recipes:
         cooklatex = await self.get_cooklatex()
 
         collections = [
-            "./Morgenmad",
-            "./Salater",
-            "./Supper",
-            "./Saucer",
-            "./Pastaretter",
-            "./Hovedretter",
-            "./'Side retter'",
-            "./Brød",
-            "./Dessert",
-            "./Kage",
+            "./Morgenmad & Brunch",
+            "./Brød & Bagværk",
+            "./Supper & Salater",
+            "./Saucer & Tilbehør",
+            "./Pasta & Pizza",
+            "./Fisk & Skaldyr",
+            "./Fjerkræ",
+            "./Kød",
+            "./Tærter & Crumbles",
+            "./Kager",
+            "./Småkager & Konfekt",
+            "./Desserter",
         ]
 
         latex_env = (
